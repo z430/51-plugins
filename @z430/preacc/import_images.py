@@ -32,37 +32,21 @@ class ImportImages(foo.Operator):
 
     def resolve_input(self, ctx):
         inputs = types.Object()
-        _import_images_input(ctx, inputs)
+
+        _import_images_inputs(ctx, inputs)
+
         return types.Property(inputs, view=types.View(label="Import Images"))
 
     def execute(self, ctx):
-        for update in _import_media(ctx):
+        for update in _import_media_only(ctx):
             yield update
-
-        if not ctx.delegate:
+        if not ctx.delegated:
             yield ctx.trigger("reload_dataset")
-        # return {"metadata": ctx.params["metadata"], "upload": ctx.params["upload"]}
-
-    # def resolve_output(self, ctx):
-    # outputs = types.Object()
-    # outputs.map(
-    #     "metadata",
-    #     label="Metadata",
-    #     key_type=types.String(),
-    #     value_type=types.String(),
-    # )
-    # outputs.str("upload", label="Upload")
-    # header = "Import Images: Success!"
-    # return types.Property(outputs, view=types.View(label=header))
-    # for update in _import_media(ctx):
-    #     yield update
-
-    # if not ctx.delegate:
-    #     yield ctx.trigger("reload_dataset")
 
 
-def _import_images_input(ctx, inputs):
+def _import_images_inputs(ctx, inputs):
     ready = False
+
     file_explorer = types.FileExplorerView(
         choose_dir=True,
         button_label="Choose a directory...",
@@ -99,40 +83,14 @@ def _import_images_input(ctx, inputs):
         view=types.AutocompleteView(multiple=True),
     )
 
-    inputs.str("gas_station_name", label="Gas Station Location", required=True)
-    inputs.str("gas_station_operator", label="Gas Station Operator", required=True)
-    inputs.list("metadata", other_metadata(ctx), label="Add Other Metadata")
-    # inputs.map(
-    #     "metadata",
-    #     label="Add Other Metadata",
-    #     key_type=types.String(),
-    #     value_type=types.String(),
-    # )
+    inputs.str("gsn", label="GSN", required=True)
+    inputs.str("gso", label="GSO", required=True)
 
     ready = _upload_media_inputs(ctx, inputs)
     if not ready:
         return False
+
     return True
-
-
-def other_metadata(ctx):
-    metadata = types.Object()
-    metadata.str(
-        "mname",
-        label="Name",
-        description="Name",
-        required=True,
-        view=types.View(space=6),
-    )
-    metadata.str(
-        "mvalue",
-        label="value",
-        description="Value",
-        required=True,
-        view=types.View(space=6),
-    )
-
-    return metadata
 
 
 def _parse_path(ctx, key):
@@ -198,28 +156,17 @@ def _upload_media_inputs(ctx, inputs):
     return True
 
 
-def _parse_path(ctx, key):
-    value = ctx.params.get(key, None)
-    return value.get("absolute_path", None) if value else None
+def _create_sample(filepath, tags, gsn, gso, metadata=None):
+    sample = fo.Sample(filepath=filepath, tags=tags)
+    sample["gsn"] = gsn
+    sample["gso"] = gso
+    return sample
 
 
-def _import_media(ctx):
+def _import_media_only(ctx):
     tags = ctx.params.get("tags", None)
-    # metadata = ctx.params.get("metadata", None)
-    gas_station_name = ctx.params.get("gas_station_name", None)
-    gas_station_operator = ctx.params.get("gas_station_operator", None)
-
-    # is_upload = ctx.params.get("upload", False)
-
-    # if is_upload:
-    #     filepath = _upload_media_bytes(ctx)
-    #     sample = fo.Sample(filepath=filepath, tags=tags)
-    #     sample["gas_station_name"] = gas_station_name
-    #     sample["gas_station_operator"] = gas_station_operator
-    #     # for meta in metadata:
-    #     #     sample[meta[0]] = meta[1]
-    #     ctx.dataset.add_sample(sample)
-    #     return
+    gsn = ctx.params.get("gsn", None)
+    gso = ctx.params.get("gso", None)
 
     directory = _parse_path(ctx, "directory")
     glob_patt = None
@@ -235,7 +182,14 @@ def _import_media(ctx):
         for progress in _upload_media(ctx, tasks):
             yield progress
 
-    make_sample = lambda f: fo.Sample(filepath=f, tags=tags)
+    # make_sample = lambda f: fo.Sample(filepath=f, tags=tags)
+    def make_sample(f):
+        return _create_sample(
+            filepath=f,
+            tags=tags,
+            gsn=gsn,
+            gso=gso,
+        )
 
     if ctx.delegated:
         samples = map(make_sample, filepaths)
@@ -255,23 +209,6 @@ def _import_media(ctx):
             progress = num_added / num_total
             label = f"Loaded {num_added} of {num_total}"
             yield ctx.trigger("set_progress", dict(progress=progress, label=label))
-
-
-def _upload_media_bytes(ctx):
-    media_obj = ctx.params["media_file"]
-    upload_dir = _parse_path(ctx, "upload_dir")
-    overwrite = ctx.params["overwrite"]
-    filename = media_obj["name"]
-    content = base64.b64decode(media_obj["content"])
-
-    if overwrite:
-        outpath = fos.join(upload_dir, filename)
-    else:
-        filename_maker = fou.UniqueFilenameMaker(output_dir=upload_dir)
-        outpath = filename_maker.get_output_path(input_path=filename)
-
-    fos.write_file(content, outpath)
-    return outpath
 
 
 def _upload_media_tasks(ctx, filepaths):
