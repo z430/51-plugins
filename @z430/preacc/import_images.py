@@ -1,18 +1,11 @@
-import base64
-import contextlib
 import multiprocessing.dummy
-import os
 
-import eta.core.utils as etau
 
 import fiftyone as fo
-import fiftyone.core.fields as fof
-import fiftyone.core.media as fom
 import fiftyone.core.storage as fos
 import fiftyone.core.utils as fou
 import fiftyone.operators as foo
 import fiftyone.operators.types as types
-import fiftyone.types as fot
 
 
 class ImportImages(foo.Operator):
@@ -85,6 +78,9 @@ def _import_images_inputs(ctx, inputs):
 
     inputs.str("gsn", label="GSN", required=True)
     inputs.str("gso", label="GSO", required=True)
+    inputs.str(
+        "datetime", label="Insert Datetime with format: 20250110T111003", required=False
+    )
 
     ready = _upload_media_inputs(ctx, inputs)
     if not ready:
