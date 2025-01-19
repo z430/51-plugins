@@ -1,0 +1,7 @@
+name: "@z430/preacc"
+description: A collection of preaccuracy check
+version: 1.0.1
+fiftyone:
+  version: ">=0.22.2"
+operators:
+  - import_images
