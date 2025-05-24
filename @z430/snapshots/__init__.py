@@ -43,17 +43,22 @@ class SnapshotSamples(foo.Operator):
         target_view = _get_target_view(ctx, target)
 
         # Export the samples in FiftyOne format to the specified directory
-        target_view.export(
-            export_dir=output_dir,
-            dataset_type=fot.FiftyOneDataset,
-            export_media=True,
-        )
-
+        for sample in target_view:
+            sample_json = sample.to_json(pretty_print=True)
+            # write the sample JSON to a file
+            sample_filename = f"{os.path.basename(sample.filepath).split('.')[0]}.json"
+            sample_path = os.path.join(output_dir, sample_filename)
+            with open(sample_path, "w") as f:
+                f.write(sample_json)
+            
+            # copy the media file to the output directory
+            if sample.filepath:
+                media_filename = os.path.basename(sample.filepath)
+                media_path = os.path.join(output_dir, media_filename)
+                fos.copy_file(sample.filepath, media_path)
+            
         if not ctx.delegated:
-            ctx.trigger(
-                "set_info",
-                dict(info=f"Exported {len(target_view)} samples to {output_dir}"),
-            )
+            ctx.trigger("reload_dataset") 
 
 
 def _snapshot_samples_input(ctx, inputs):

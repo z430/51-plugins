@@ -4,7 +4,7 @@ import fiftyone.zoo as foz
 dataset = foz.load_zoo_dataset(
     "coco-2017",
     split="validation",
-    max_samples=50,
+    max_samples=500,
     shuffle=True,
 )
 session = fo.launch_app(dataset)
