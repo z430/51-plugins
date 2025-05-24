@@ -1,0 +1,7 @@
+name: "@z430/snapshot-samples"
+description: Snapshot samples
+version: 1.0.1
+fiftyone:
+  version: ">=0.22.2"
+operators:
+  - snapshot_samples
