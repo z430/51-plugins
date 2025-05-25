@@ -169,16 +169,12 @@ class ImportSnapshots(foo.Operator):
         target_dataset = ctx.params.get("target_dataset", "CURRENT_DATASET")
         tags = ctx.params.get("tags", "")
 
-        logger.info(ctx.params)
-
-        # Process tags if provided
-        tag_list = []
-        if tags:
-            tag_list = [tag.strip() for tag in tags.split(",") if tag.strip()]
+        logger.info(f"Parameters: {ctx.params}")
 
         # Get the target dataset
         dataset = self._get_or_create_dataset(ctx, target_dataset)
-        if not dataset:
+        if dataset is None:
+            logger.error("No dataset specified or created")
             return
 
         # Find all JSON files in the input directory
@@ -188,38 +184,18 @@ class ImportSnapshots(foo.Operator):
             f"Found {total_files} JSON files in {input_dir} to import into dataset {dataset.name}"
         )
 
-        # Set up progress tracking for delegated execution
-        if ctx.delegated:
-            ctx.update_progress(
-                0, total_files, message=f"Starting import of {total_files} samples..."
-            )
-
         # Process each JSON file
         for i, json_file in enumerate(tqdm.tqdm(json_files)):
-            # Update progress periodically for delegated execution
-            if ctx.delegated and i % max(1, int(total_files / 10)) == 0:
-                ctx.update_progress(
-                    i, total_files, message=f"Importing samples... ({i}/{total_files})"
-                )
-
-            if i % 100 == 0:
-                logger.info(f"Processing {i + 1}/{total_files}: {json_file}")
-
             # Import the sample
             sample = self._import_sample(json_file, input_dir, media_dir, dataset)
 
             # Add tags if provided
-            if tag_list and sample is not None:
-                sample.tags.extend(tag_list)
+            if tags and sample is not None:
+                sample.tags.extend(tags)
                 sample.save()
 
-        # Mark as complete when done
-        if ctx.delegated:
-            ctx.update_progress(
-                total_files,
-                total_files,
-                message=f"Import complete. Imported {total_files} samples.",
-            )
+        dataset.save()
+        logger.info(f"Imported {total_files} samples into dataset {dataset.name}")
 
         # Reload the app view
         if not ctx.delegated:
@@ -228,34 +204,39 @@ class ImportSnapshots(foo.Operator):
     def _get_or_create_dataset(self, ctx, target_dataset):
         """Get or create the target dataset based on user selection."""
         if target_dataset == "CURRENT_DATASET":
+            logger.info(ctx.dataset)
             return ctx.dataset
 
         # Load different dataset
         dataset_name = ctx.params.get("dataset_name", "")
+        logger.info(f"Target dataset: {dataset_name}")
         if not dataset_name:
             ctx.error("No dataset name provided")
+            logger.error("No dataset name provided")
             return None
 
         # Check if dataset exists, create if it doesn't
         if dataset_name in fo.list_datasets():
             dataset = fo.load_dataset(dataset_name)
+            logger.info(f"Loaded existing dataset: {dataset_name}")
         else:
+            logger.info(f"Creating new dataset: {dataset_name}")
             dataset = fo.Dataset(dataset_name)
-
+            dataset.persistent = ctx.params.get("persistent", True)
+            dataset.description = ctx.params.get("description", "")
+        logger.debug(dataset)
         return dataset
 
     def _import_sample(self, json_file, input_dir, media_dir, dataset):
         """Import a single sample from JSON file."""
         # Load the sample JSON
         json_path = os.path.join(input_dir, json_file)
-        logger.info(f"Loading sample from {json_path}")
         with open(json_path, "r") as f:
             sample_dict = json.load(f)
 
         # Check for the media file in the input directory
         media_filename = os.path.basename(sample_dict.get("filepath", ""))
         media_path = os.path.join(input_dir, media_filename)
-        logger.info(f"Media path: {media_path}")
 
         # Create the sample
         sample = fo.Sample.from_dict(sample_dict)
@@ -383,7 +364,7 @@ def _import_snapshots_input(ctx, inputs):
             )
         else:
             name_prop = inputs.str(
-                "new_dataset_name",
+                "dataset_name",
                 required=False,
                 label="Name",
                 description=(
@@ -392,7 +373,7 @@ def _import_snapshots_input(ctx, inputs):
                 ),
             )
 
-            name = ctx.params.get("new_dataset_name", None)
+            name = ctx.params.get("dataset_name", None)
 
             if name and fo.dataset_exists(name):
                 name_prop.invalid = True
