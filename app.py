@@ -6,6 +6,7 @@ dataset = foz.load_zoo_dataset(
     split="validation",
     max_samples=500,
     shuffle=True,
+    dataset_name="coco-2017-validation",
 )
 session = fo.launch_app(dataset)
 session.wait(-1)
