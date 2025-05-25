@@ -14,6 +14,8 @@ import fiftyone.operators as foo
 import fiftyone.operators.types as types
 import fiftyone.types as fot
 
+import tqdm
+
 
 class SnapshotSamples(foo.Operator):
     @property
@@ -43,7 +45,7 @@ class SnapshotSamples(foo.Operator):
         target_view = _get_target_view(ctx, target)
 
         # Export the samples in FiftyOne format to the specified directory
-        for sample in target_view:
+        for sample in tqdm.tqdm(target_view):
             sample_json = sample.to_json(pretty_print=True)
             # write the sample JSON to a file
             sample_filename = f"{os.path.basename(sample.filepath).split('.')[0]}.json"
