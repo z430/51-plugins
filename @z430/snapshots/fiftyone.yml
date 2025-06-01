@@ -1,8 +1,8 @@
 name: "@z430/snapshots-io"
-description: Snapshot samples
+description: Export and import snapshots of samples with their metadata and media files
 version: 1.0.1
 fiftyone:
   version: ">=0.22.2"
 operators:
-  - export_snapshots
+  - snapshot_samples
   - import_snapshots

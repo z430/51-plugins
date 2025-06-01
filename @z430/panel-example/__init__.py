@@ -12,6 +12,7 @@ import multiprocessing.dummy
 import os
 
 import eta.core.utils as etau
+from loguru import logger
 
 import fiftyone as fo
 import fiftyone.core.fields as fof
@@ -137,7 +138,8 @@ class ImportSamples(foo.Operator):
                 assert fos.isdir(data_path)
                 params["style"] = "DIRECTORY"
                 params["directory"] = _to_path(data_path)
-            except:
+            except Exception as e:
+                logger.error("Failed to parse data_path '%s': %s", data_path, e)
                 params["style"] = "GLOB_PATTERN"
                 params["glob_patt"] = _to_path(data_path)
 
@@ -278,7 +280,7 @@ def _import_media_only_inputs(ctx, inputs):
             required=True,
             label="Glob pattern",
             description=(
-                "Provide a glob pattern of matching media to add to this " "dataset"
+                "Provide a glob pattern of matching media to add to this dataset"
             ),
             view=file_explorer,
         )
@@ -435,8 +437,7 @@ def _import_media_and_labels_inputs(ctx, inputs):
         if existing_field is not None and label_field not in existing_fields:
             prop.invalid = True
             prop.error_message = (
-                f"Existing field '{label_field}' has unsupported type "
-                f"{existing_field}"
+                f"Existing field '{label_field}' has unsupported type {existing_field}"
             )
             return False
 
@@ -480,7 +481,7 @@ def _import_media_and_labels_inputs(ctx, inputs):
             required=True,
             label="Data directory",
             description=(
-                "Choose the directory that contains the media to add to this " "dataset"
+                "Choose the directory that contains the media to add to this dataset"
             ),
             view=file_explorer,
         )
@@ -594,8 +595,7 @@ def _import_labels_only_inputs(ctx, inputs):
         if existing_field is not None and label_field not in existing_fields:
             prop.invalid = True
             prop.error_message = (
-                f"Existing field '{label_field}' has unsupported type "
-                f"{existing_field}"
+                f"Existing field '{label_field}' has unsupported type {existing_field}"
             )
             return False
 
@@ -612,8 +612,7 @@ def _import_labels_only_inputs(ctx, inputs):
             required=True,
             label="Labels directory",
             description=(
-                "Choose the directory that contains the labels to add to this "
-                "dataset"
+                "Choose the directory that contains the labels to add to this dataset"
             ),
             view=file_explorer,
         )
@@ -808,7 +807,8 @@ def _import_media_only(ctx):
         for progress in _upload_media(ctx, tasks):
             yield progress
 
-    make_sample = lambda f: fo.Sample(filepath=f, tags=tags)
+    def make_sample(f):
+        return fo.Sample(filepath=f, tags=tags)
 
     if ctx.delegated:
         samples = map(make_sample, filepaths)
@@ -1194,8 +1194,7 @@ def _get_merge_parameters(ctx, inputs):
         default="filepath",
         label="Key field",
         description=(
-            "The sample field to use to decide whether to join with an "
-            "existing sample"
+            "The sample field to use to decide whether to join with an existing sample"
         ),
         view=key_field_selector,
     )
@@ -1317,7 +1316,7 @@ def _get_merge_parameters(ctx, inputs):
         default=True,
         label="Include info",
         description=(
-            "Whether to merge dataset-level information such as `info` and " "`classes`"
+            "Whether to merge dataset-level information such as `info` and `classes`"
         ),
         view=types.CheckboxView(),
     )
@@ -2589,8 +2588,7 @@ def _draw_labels_inputs(ctx, inputs):
         required=True,
         label="Output directory",
         description=(
-            "Choose a new or existing directory into which to write the "
-            "annotated media"
+            "Choose a new or existing directory into which to write the annotated media"
         ),
         view=file_explorer,
     )
@@ -2600,7 +2598,7 @@ def _draw_labels_inputs(ctx, inputs):
         inputs.bool(
             "overwrite",
             default=False,
-            label=("Directory already exists. Delete it before writing new " "media?"),
+            label=("Directory already exists. Delete it before writing new media?"),
             view=types.CheckboxView(),
         )
 
